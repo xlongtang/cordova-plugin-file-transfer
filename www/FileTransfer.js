@@ -110,6 +110,7 @@ FileTransfer.prototype.upload = function(filePath, server, successCallback, erro
     var chunkedMode = true;
     var headers = null;
     var httpMethod = null;
+    var contentRange = null;
     var basicAuthHeader = getBasicAuthHeader(server);
     if (basicAuthHeader) {
         server = server.replace(getUrlCredentials(server) + '@', '');
@@ -124,7 +125,8 @@ FileTransfer.prototype.upload = function(filePath, server, successCallback, erro
         fileName = options.fileName;
         mimeType = options.mimeType;
         headers = options.headers;
-        httpMethod = options.httpMethod || "POST";
+        httpMethod = options.httpMethod || "POST";        
+        contentRange = options.contentRange;
         if (httpMethod.toUpperCase() == "PUT"){
             httpMethod = "PUT";
         } else {
@@ -163,7 +165,7 @@ FileTransfer.prototype.upload = function(filePath, server, successCallback, erro
             }
         }
     };
-    exec(win, fail, 'FileTransfer', 'upload', [filePath, server, fileKey, fileName, mimeType, params, trustAllHosts, chunkedMode, headers, this._id, httpMethod]);
+    exec(win, fail, 'FileTransfer', 'upload', [filePath, server, fileKey, fileName, mimeType, params, trustAllHosts, chunkedMode, headers, this._id, httpMethod, contentRange]);
 };
 
 /**

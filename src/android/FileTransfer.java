@@ -291,6 +291,10 @@ public class FileTransfer extends CordovaPlugin {
         final JSONObject headers = args.optJSONObject(8) == null ? params.optJSONObject("headers") : args.optJSONObject(8);
         final String objectId = args.getString(9);
         final String httpMethod = getArgument(args, 10, "POST");
+        final JSONObject contentRange = args.optJSONObject(11) == null ? null : args.optJSONObject(11);
+        final int startPos = contentRange != null ? contentRange.getInt("startPos") : 0;
+        final int endPos = contentRange != null ? contentRange.getInt("endPos") : 0;
+        final int rangeSize = contentRange != null ? contentRange.getInt("rangeSize") : 0; 
 
         final CordovaResourceApi resourceApi = webView.getResourceApi();
 
@@ -462,9 +466,16 @@ public class FileTransfer extends CordovaPlugin {
                         byte[] buffer = new byte[bufferSize];
 
                         // read file and write it into form...
-                        int bytesRead = readResult.inputStream.read(buffer, 0, bufferSize);
+                        int bytesRead;
+                        if (contentRange == null) {
+                            bytesRead = readResult.inputStream.read(buffer, 0, bufferSize);
+                        } else {
+                            bufferSize = Math.min(bufferSize, rangeSize);                            
+                            bytesRead = readResult.inputStream.read(buffer, startPos, bufferSize);
+                        }
 
                         long prevBytesRead = 0;
+                        int bytesReadInRange = 0;                        
                         while (bytesRead > 0) {
                             totalBytes += bytesRead;
                             result.setBytesSent(totalBytes);
@@ -475,7 +486,14 @@ public class FileTransfer extends CordovaPlugin {
                             }
                             bytesAvailable = readResult.inputStream.available();
                             bufferSize = Math.min(bytesAvailable, MAX_BUFFER_SIZE);
-                            bytesRead = readResult.inputStream.read(buffer, 0, bufferSize);
+
+                            if (contentRange == null) {
+                                bytesRead = readResult.inputStream.read(buffer, 0, bufferSize);
+                            } else {
+                                bytesReadInRange = bytesReadInRange + bytesRead;
+                                bufferSize = Math.min(bufferSize, rangeSize - bytesReadInRange);
+                                bytesRead = readResult.inputStream.read(buffer, 0, bufferSize);
+                            }
 
                             // Send a progress event.
                             progress.setLoaded(totalBytes);
