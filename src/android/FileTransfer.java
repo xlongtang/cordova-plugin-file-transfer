@@ -414,7 +414,6 @@ public class FileTransfer extends CordovaPlugin {
                     byte[] beforeDataBytes = beforeData.toString().getBytes("UTF-8");
                     byte[] tailParamsBytes = (LINE_END + LINE_START + BOUNDARY + LINE_START + LINE_END).getBytes("UTF-8");
 
-
                     // Get a input stream of the file on the phone
                     OpenForReadResult readResult = resourceApi.openForRead(sourceUri);
 
@@ -470,8 +469,9 @@ public class FileTransfer extends CordovaPlugin {
                         if (contentRange == null) {
                             bytesRead = readResult.inputStream.read(buffer, 0, bufferSize);
                         } else {
-                            bufferSize = Math.min(bufferSize, rangeSize);                            
-                            bytesRead = readResult.inputStream.read(buffer, startPos, bufferSize);
+                            bufferSize = Math.min(bufferSize, rangeSize);
+                            readResult.inputStream.skip(startPos);
+                            bytesRead = readResult.inputStream.read(buffer, 0, bufferSize);
                         }
 
                         long prevBytesRead = 0;
@@ -507,6 +507,7 @@ public class FileTransfer extends CordovaPlugin {
                             sendStream.write(tailParamsBytes);
                             totalBytes += tailParamsBytes.length;
                         }
+
                         sendStream.flush();
                     } finally {
                         safeClose(readResult.inputStream);
