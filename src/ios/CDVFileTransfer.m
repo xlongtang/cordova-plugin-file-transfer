@@ -153,6 +153,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     // for allowed methods, currently PUT or POST (forces POST for
     // unrecognised values)
     NSString* httpMethod = [command argumentAtIndex:10 withDefault:@"POST"];
+    
     CDVPluginResult* result = nil;
     CDVFileTransferError errorCode = 0;
 
@@ -305,6 +306,12 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 {
     NSString* source = (NSString*)[command argumentAtIndex:0];
     NSString* server = [command argumentAtIndex:1];
+    // Decode the content range options
+    NSDictionary* contentRange = [command argumentAtIndex:11 withDefault:nil];
+    int startPos = contentRange != nil ? [[contentRange objectForKey:@"startPos"] intValue] : 0;
+    int endPos = contentRange != nil ? [[contentRange objectForKey:@"endPos"] intValue] : 0;
+    int rangeSize = contentRange != nil ? [[contentRange objectForKey:@"rangeSize"] intValue] : 0;
+    
     NSError* __autoreleasing err = nil;
 
     if ([source hasPrefix:@"data:"] && [source rangeOfString:@"base64"].location != NSNotFound) {
@@ -358,8 +365,22 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
             return;
         }
 
-        // Memory map the file so that it can be read efficiently even if it is large.
-        NSData* fileData = [NSData dataWithContentsOfFile:filePath options:NSDataReadingMappedIfSafe error:&err];
+        NSData* fileData;
+        if (contentRange == nil) {
+            // Memory map the file so that it can be read efficiently even if it is large.
+            fileData = [NSData dataWithContentsOfFile:filePath options:NSDataReadingMappedIfSafe error:&err];
+        } else {
+            NSFileHandle* handler = [NSFileHandle fileHandleForReadingAtPath:filePath];
+            if (handler == nil) {
+                // We couldn't open the asset.  Send the appropriate error.
+                CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self createFileTransferError:NOT_FOUND_ERR AndSource:source AndTarget:server]];
+                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+                return;
+            }
+            [handler seekToFileOffset:startPos];
+            fileData = [handler readDataOfLength:endPos - startPos];
+            [handler closeFile];
+        }
 
         if (err != nil) {
             NSLog(@"Error opening file %@: %@", source, err);
